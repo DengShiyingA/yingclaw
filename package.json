@@ -1,0 +1,44 @@
+{
+  "name": "yingclaw",
+  "version": "2.0.9",
+  "description": "Claude Code × 国产大模型一键接入：DeepSeek、Kimi、Qwen、MiniMax、GLM、MiMo",
+  "main": "index.js",
+  "bin": {
+    "claw": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "index.js",
+    "README.md"
+  ],
+  "scripts": {
+    "start": "node bin/cli.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "deepseek",
+    "qwen",
+    "minimax",
+    "glm",
+    "mimo",
+    "ai",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@inquirer/prompts": "^8.4.2",
+    "boxen": "^8.0.1",
+    "chalk": "^5.6.2",
+    "commander": "^14.0.3",
+    "figlet": "^1.11.0",
+    "ora": "^9.4.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

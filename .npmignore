@@ -1,0 +1,7 @@
+.clawai.json
+.claude-api-switch.json
+.DS_Store
+*.log
+node_modules/
+package-lock.json
+test/
