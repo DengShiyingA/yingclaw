@@ -76,21 +76,22 @@ test('getClaudeDesktopConfigPath returns legacy Claude-3p config file on macOS a
   assert.equal(getClaudeDesktopConfigPath({ platform: 'linux', homeDir: '/home/alice' }), null);
 });
 
-test('writeClaudeDesktopConfig writes configLibrary entry and sets deploymentMode', () => {
+test('writeClaudeDesktopConfig preserves other 3P entries and adds yingclaw alongside', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yingclaw-desktop-'));
   const dataDir = path.join(tmpDir, 'Claude-3p');
   const configLibraryDir = path.join(dataDir, 'configLibrary');
-  const oldUuid = '65845bbe-5f97-4217-8472-4cc12e1d2999';
+  const otherUuid = '65845bbe-5f97-4217-8472-4cc12e1d2999';
   fs.mkdirSync(configLibraryDir, { recursive: true });
   fs.writeFileSync(path.join(configLibraryDir, '_meta.json'), JSON.stringify({
-    appliedId: oldUuid,
-    entries: [{ id: oldUuid, name: 'Default' }],
+    appliedId: otherUuid,
+    entries: [{ id: otherUuid, name: 'Default' }],
   }));
-  fs.writeFileSync(path.join(configLibraryDir, `${oldUuid}.json`), JSON.stringify({
+  const otherEntryBody = JSON.stringify({
     inferenceProvider: 'gateway',
     inferenceGatewayBaseUrl: 'https://api.deepseek.com',
-    inferenceGatewayApiKey: 'sk-old',
-  }));
+    inferenceGatewayApiKey: 'sk-other',
+  });
+  fs.writeFileSync(path.join(configLibraryDir, `${otherUuid}.json`), otherEntryBody);
 
   const result = writeClaudeDesktopConfig({
     provider: 'deepseek',
@@ -107,16 +108,54 @@ test('writeClaudeDesktopConfig writes configLibrary entry and sets deploymentMod
   assert.equal(mainConfig.deploymentMode, '3p');
   assert.equal(mainConfig.enterpriseConfig, undefined);
 
-  // configLibrary 写入了正确的 entry（复用旧 uuid）
+  // 用户原有的 Default entry 被原样保留
+  assert.equal(fs.readFileSync(path.join(configLibraryDir, `${otherUuid}.json`), 'utf8'), otherEntryBody);
+
+  // meta 包含两个 entry：Default + yingclaw；appliedId 指向 yingclaw
   const meta = JSON.parse(fs.readFileSync(path.join(configLibraryDir, '_meta.json'), 'utf8'));
-  assert.equal(meta.appliedId, oldUuid);
-  const entry = JSON.parse(fs.readFileSync(path.join(configLibraryDir, `${oldUuid}.json`), 'utf8'));
+  assert.equal(meta.entries.length, 2);
+  const yingclawEntry = meta.entries.find((e) => e.name === 'yingclaw');
+  const defaultEntry = meta.entries.find((e) => e.name === 'Default');
+  assert.ok(yingclawEntry, 'yingclaw entry should exist');
+  assert.ok(defaultEntry, 'Default entry should be preserved');
+  assert.notEqual(yingclawEntry.id, otherUuid, 'yingclaw should have its own UUID');
+  assert.equal(meta.appliedId, yingclawEntry.id);
+
+  const entry = JSON.parse(fs.readFileSync(path.join(configLibraryDir, `${yingclawEntry.id}.json`), 'utf8'));
   assert.equal(entry.inferenceProvider, 'gateway');
   assert.equal(entry.inferenceGatewayBaseUrl, 'https://api.deepseek.com/anthropic');
   assert.equal(entry.inferenceGatewayApiKey, 'sk-test');
   assert.equal(entry.inferenceGatewayAuthScheme, 'bearer');
   assert.equal(entry.disableDeploymentModeChooser, true);
   assert.deepEqual(entry.inferenceModels, ['claude-deepseek-v4-pro[1m]', 'claude-deepseek-v4-flash[1m]']);
+});
+
+test('writeClaudeDesktopConfig reuses existing yingclaw entry id when re-running', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yingclaw-desktop-'));
+  const dataDir = path.join(tmpDir, 'Claude-3p');
+
+  const first = writeClaudeDesktopConfig({
+    provider: 'kimi',
+    baseUrl: 'https://api.moonshot.ai/anthropic',
+    apiKey: 'sk-test',
+    model: 'kimi-k2.5',
+  }, { dataDir });
+  const meta1 = JSON.parse(fs.readFileSync(path.join(dataDir, 'configLibrary', '_meta.json'), 'utf8'));
+  const yc1 = meta1.entries.find((e) => e.name === 'yingclaw');
+
+  const second = writeClaudeDesktopConfig({
+    provider: 'kimi',
+    baseUrl: 'https://api.moonshot.ai/anthropic',
+    apiKey: 'sk-test-2',
+    model: 'kimi-k2.5',
+  }, { dataDir });
+  const meta2 = JSON.parse(fs.readFileSync(path.join(dataDir, 'configLibrary', '_meta.json'), 'utf8'));
+  const yc2 = meta2.entries.find((e) => e.name === 'yingclaw');
+
+  assert.equal(first.result, 'updated');
+  assert.equal(second.result, 'updated');
+  assert.equal(yc1.id, yc2.id, 'yingclaw entry id should be stable across runs');
+  assert.equal(meta2.entries.filter((e) => e.name === 'yingclaw').length, 1);
 });
 
 test('writeClaudeDesktopConfig rejects non-HTTPS gateway URLs', () => {
@@ -155,28 +194,58 @@ test('clearClaudeDesktopConfig removes legacy enterpriseConfig and deploymentMod
   assert.deepEqual(after, { theme: 'dark' });
 });
 
-test('clearClaudeDesktopConfig clears configLibrary and deploymentMode (new format)', () => {
+test('clearClaudeDesktopConfig only removes yingclaw entry, preserves other 3P configs', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yingclaw-desktop-'));
   const dataDir = path.join(tmpDir, 'Claude-3p');
   const configLibraryDir = path.join(dataDir, 'configLibrary');
-  const uuid = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const ycUuid = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+  const otherUuid = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
   fs.mkdirSync(configLibraryDir, { recursive: true });
-  fs.writeFileSync(path.join(configLibraryDir, '_meta.json'), JSON.stringify({ appliedId: uuid, entries: [{ id: uuid }] }));
-  fs.writeFileSync(path.join(configLibraryDir, `${uuid}.json`), JSON.stringify({ inferenceProvider: 'gateway' }));
+  fs.writeFileSync(path.join(configLibraryDir, '_meta.json'), JSON.stringify({
+    appliedId: ycUuid,
+    entries: [{ id: ycUuid, name: 'yingclaw' }, { id: otherUuid, name: 'Default' }],
+  }));
+  fs.writeFileSync(path.join(configLibraryDir, `${ycUuid}.json`), JSON.stringify({ inferenceProvider: 'gateway' }));
+  const otherBody = JSON.stringify({ inferenceProvider: 'gateway', name: 'keep me' });
+  fs.writeFileSync(path.join(configLibraryDir, `${otherUuid}.json`), otherBody);
   fs.writeFileSync(path.join(dataDir, 'claude_desktop_config.json'), JSON.stringify({ deploymentMode: '3p', preferences: { theme: 'dark' } }));
 
   const result = clearClaudeDesktopConfig({ dataDir });
 
   assert.equal(result.result, 'updated');
-  // configLibrary files are gone
-  assert.equal(fs.existsSync(path.join(configLibraryDir, '_meta.json')), false);
-  assert.equal(fs.existsSync(path.join(configLibraryDir, `${uuid}.json`)), false);
+  // yingclaw entry gone
+  assert.equal(fs.existsSync(path.join(configLibraryDir, `${ycUuid}.json`)), false);
+  // other entry preserved
+  assert.equal(fs.readFileSync(path.join(configLibraryDir, `${otherUuid}.json`), 'utf8'), otherBody);
+  // meta still exists, only Default entry remains, appliedId moved to it
+  const meta = JSON.parse(fs.readFileSync(path.join(configLibraryDir, '_meta.json'), 'utf8'));
+  assert.deepEqual(meta.entries, [{ id: otherUuid, name: 'Default' }]);
+  assert.equal(meta.appliedId, otherUuid);
   // deploymentMode removed, other prefs preserved
   const after = JSON.parse(fs.readFileSync(path.join(dataDir, 'claude_desktop_config.json'), 'utf8'));
   assert.deepEqual(after, { preferences: { theme: 'dark' } });
 });
 
-test('isDesktopConfigured returns true when configLibrary has appliedId', () => {
+test('clearClaudeDesktopConfig deletes meta entirely when only yingclaw entry existed', () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yingclaw-desktop-'));
+  const dataDir = path.join(tmpDir, 'Claude-3p');
+  const configLibraryDir = path.join(dataDir, 'configLibrary');
+  const uuid = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+  fs.mkdirSync(configLibraryDir, { recursive: true });
+  fs.writeFileSync(path.join(configLibraryDir, '_meta.json'), JSON.stringify({
+    appliedId: uuid,
+    entries: [{ id: uuid, name: 'yingclaw' }],
+  }));
+  fs.writeFileSync(path.join(configLibraryDir, `${uuid}.json`), JSON.stringify({ inferenceProvider: 'gateway' }));
+
+  const result = clearClaudeDesktopConfig({ dataDir });
+
+  assert.equal(result.result, 'updated');
+  assert.equal(fs.existsSync(path.join(configLibraryDir, '_meta.json')), false);
+  assert.equal(fs.existsSync(path.join(configLibraryDir, `${uuid}.json`)), false);
+});
+
+test('isDesktopConfigured detects yingclaw entry, ignores other 3P entries', () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'yingclaw-desktop-'));
   const dataDir = path.join(tmpDir, 'Claude-3p');
   const uuid = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
@@ -184,7 +253,14 @@ test('isDesktopConfigured returns true when configLibrary has appliedId', () => 
 
   assert.equal(isDesktopConfigured({ dataDir }), false);
 
-  fs.writeFileSync(path.join(dataDir, 'configLibrary', '_meta.json'), JSON.stringify({ appliedId: uuid }));
+  // 用户其他 3P 配置不应被识别为 yingclaw 的
+  fs.writeFileSync(path.join(dataDir, 'configLibrary', '_meta.json'),
+    JSON.stringify({ appliedId: uuid, entries: [{ id: uuid, name: 'Default' }] }));
+  assert.equal(isDesktopConfigured({ dataDir }), false);
+
+  // 含 yingclaw entry 才算
+  fs.writeFileSync(path.join(dataDir, 'configLibrary', '_meta.json'),
+    JSON.stringify({ appliedId: uuid, entries: [{ id: uuid, name: 'yingclaw' }] }));
   assert.equal(isDesktopConfigured({ dataDir }), true);
 });
 

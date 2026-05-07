@@ -857,8 +857,17 @@ program
       return;
     }
 
-    const installCmd = buildClaudeInstallCommand('vpn');
-    const upgradeCmd = { command: installCmd.command, args: [...installCmd.args.slice(0, -1), 'yingclaw@latest'] };
+    const network = await select({ loop: false,
+      message: chalk.cyan('你的网络环境'),
+      choices: [
+        { name: '有梯子 / 海外网络（走官方）', value: 'vpn' },
+        { name: '国内网络 / 没有梯子（走镜像）', value: 'cn' },
+      ],
+    });
+
+    const upgradeArgs = ['install', '-g', 'yingclaw@latest'];
+    if (network === 'cn') upgradeArgs.push('--registry=https://registry.npmmirror.com');
+    const upgradeCmd = { command: 'npm', args: upgradeArgs };
 
     console.log(chalk.dim('\n升级中...\n'));
     const result = spawnSync(upgradeCmd.command, upgradeCmd.args, { stdio: 'inherit' });

@@ -21,7 +21,15 @@ const {
   validateConfig,
   writeEnvToZshrc,
   PROVIDERS,
+  CLAUDE_ENV_KEYS,
 } = require('../lib/config');
+
+test('CLAUDE_ENV_KEYS is exported as a non-empty array of env var names', () => {
+  assert.ok(Array.isArray(CLAUDE_ENV_KEYS));
+  assert.ok(CLAUDE_ENV_KEYS.length > 0);
+  assert.ok(CLAUDE_ENV_KEYS.includes('ANTHROPIC_BASE_URL'));
+  assert.ok(CLAUDE_ENV_KEYS.includes('CLAUDE_CODE_SUBAGENT_MODEL'));
+});
 
 test('DeepSeek fallback uses documented pro [1m] model and flash fast model', () => {
   assert.equal(PROVIDERS.deepseek.models[0].value, 'deepseek-v4-pro[1m]');
