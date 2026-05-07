@@ -48,7 +48,21 @@ test('status view warns about legacy DeepSeek model and derives fast model', () 
   assert.equal(view.fastModel, 'deepseek-v4-flash[1m]');
   assert.equal(view.envActive, false);
   assert.deepEqual(view.warnings, [
-    '检测到旧 DeepSeek 模型名，建议运行 claw switch 更新到 deepseek-v4-pro[1m]',
+    '检测到旧 DeepSeek 模型名，建议运行 claw switch 更新到 [1m] 长上下文版本',
+  ]);
+});
+
+test('status view warns when DeepSeek fastModel still uses legacy non-[1m] name', () => {
+  const view = buildStatusView({
+    provider: 'deepseek',
+    baseUrl: 'https://api.deepseek.com/anthropic',
+    apiKey: 'sk-secret-value',
+    model: 'deepseek-v4-pro[1m]',
+    fastModel: 'deepseek-v4-flash',
+  }, { env: {} });
+
+  assert.deepEqual(view.warnings, [
+    '检测到旧 DeepSeek 模型名，建议运行 claw switch 更新到 [1m] 长上下文版本',
   ]);
 });
 
@@ -85,7 +99,7 @@ test('menu status lines are short and explain env and legacy model states', () =
     'Claude 已安装 · DeepSeek · API 正常',
     '环境变量未生效：运行 source ~/.zshrc 或重开终端',
     '主模型 deepseek-v4-pro · 快速模型 deepseek-v4-flash[1m]',
-    '旧模型名：选择下方“切换厂商或模型”更新',
+    '旧模型名：选择下方"切换厂商或模型"更新到 [1m]',
   ]);
   assert.ok(lines.every((line) => line.length <= 72));
 });

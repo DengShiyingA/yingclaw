@@ -79,13 +79,20 @@ function getConfigValidationMessage(config) {
   return validation.valid ? null : validation.message;
 }
 
+let _claudeInstalledCache;
 function isClaudeInstalled() {
+  if (_claudeInstalledCache !== undefined) return _claudeInstalledCache;
   try {
     execSync('claude --version', { stdio: 'pipe' });
-    return true;
+    _claudeInstalledCache = true;
   } catch {
-    return false;
+    _claudeInstalledCache = false;
   }
+  return _claudeInstalledCache;
+}
+
+function invalidateClaudeInstalledCache() {
+  _claudeInstalledCache = undefined;
 }
 
 function isValidUrl(value) {
@@ -334,6 +341,7 @@ async function runConfigFlow({ writeCodeEnv = false } = {}) {
     } else if (step === 'apikey') {
       const k = await input({
         message: chalk.cyan(`${provider.name} API Key（输入 b 返回上一步）`),
+        default: apiKey || undefined,
         transformer: (v) => v && v !== 'b' ? chalk.dim('•'.repeat(v.length)) : v,
         validate: (v) => v.trim().length > 0 ? true : 'API Key 不能为空',
       });
@@ -397,6 +405,8 @@ async function runConfigFlow({ writeCodeEnv = false } = {}) {
     nextStep,
     { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'green', margin: { top: 1, bottom: 1 } }
   ));
+
+  await offerDesktopSync(chalk, ora, cfg);
 }
 
 program
@@ -614,6 +624,8 @@ program
           validate: (v) => v.trim().length > 0 ? true : 'API Key 不能为空',
         });
         apiKey = apiKey.trim();
+      } else {
+        console.log(chalk.yellow('⚠ 沿用旧 Key 通常无法访问新厂商，模型列表可能拉取失败'));
       }
     }
 
@@ -1086,6 +1098,10 @@ async function runMenu() {
     if (['config', 'switch', 'reset', 'code-reset'].includes(resolvedAction)) {
       lastCheckResult = undefined;
       lastCheckedHash = null;
+    }
+    // 安装 Claude 后刷新检测缓存
+    if (resolvedAction === 'install') {
+      invalidateClaudeInstalledCache();
     }
 
     console.log();
