@@ -825,6 +825,56 @@ program
     }
   });
 
+program
+  .command('update')
+  .description('检查并更新 yingclaw 到最新版本')
+  .action(async () => {
+    const chalk = (await import('chalk')).default;
+    const ora = (await import('ora')).default;
+    const boxen = (await import('boxen')).default;
+
+    console.log(await getBanner());
+
+    const spinner = ora('检查最新版本...').start();
+    const latest = await checkForUpdate();
+
+    if (!latest) {
+      spinner.warn(chalk.yellow('无法获取版本信息，请检查网络'));
+      return;
+    }
+
+    const current = pkg.version;
+    if (compareVersions(latest, current) <= 0) {
+      spinner.succeed(chalk.green(`已是最新版本 v${current}`));
+      return;
+    }
+
+    spinner.succeed(chalk.green(`发现新版本 v${latest}（当前 v${current}）`));
+
+    const yes = await confirm({ message: `升级到 v${latest}？`, default: true });
+    if (!yes) {
+      console.log(chalk.dim('已取消'));
+      return;
+    }
+
+    const installCmd = buildClaudeInstallCommand('vpn');
+    const upgradeCmd = { command: installCmd.command, args: [...installCmd.args.slice(0, -1), 'yingclaw@latest'] };
+
+    console.log(chalk.dim('\n升级中...\n'));
+    const result = spawnSync(upgradeCmd.command, upgradeCmd.args, { stdio: 'inherit' });
+
+    if (result.status === 0) {
+      console.log(boxen(
+        chalk.bold(`yingclaw 已升级到 v${latest}\n\n`) +
+        chalk.dim('重新运行 ') + chalk.cyan('claw') + chalk.dim(' 使新版本生效'),
+        { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'green', margin: { top: 1, bottom: 1 } }
+      ));
+    } else {
+      console.log(chalk.red('\n升级失败，请手动运行：'));
+      console.log(chalk.cyan('npm install -g yingclaw@latest'));
+    }
+  });
+
 async function renderStatusBar(apiStatus) {
   const chalk = (await import('chalk')).default;
   const config = loadConfig();
@@ -853,6 +903,30 @@ async function renderStatusBar(apiStatus) {
   }
 
   return config ? `  ${cfgPart}` : `  ${claudeIcon} ${claudeText}    ${cfgPart}`;
+}
+
+async function checkForUpdate() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`https://registry.npmjs.org/yingclaw/latest`, { signal: controller.signal });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.version || null;
+  } catch {
+    return null;
+  }
+}
+
+function compareVersions(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return 1;
+    if ((pa[i] || 0) < (pb[i] || 0)) return -1;
+  }
+  return 0;
 }
 
 // 缓存上次校验的 config 哈希和结果，避免每次回菜单都重检
@@ -885,6 +959,7 @@ async function runAdvancedMenu(chalk, hasConfig) {
       { name: '↩️  恢复 Claude Code 终端默认', value: 'code-reset' },
       { name: '↩️  恢复 Claude 桌面默认', value: 'desktop-reset' },
       { name: '🗑  清除所有 yingclaw 配置', value: 'reset' },
+      { name: '⬆️  检查更新', value: 'update' },
       { name: chalk.dim('↩  返回主菜单'), value: '__BACK__' },
     ],
   });
@@ -986,6 +1061,7 @@ async function runMenu() {
       'desktop-reset': 'desktop-reset',
       status: 'status',
       reset: 'reset',
+      update: 'update',
     };
 
     // 执行子命令（用 spawn 隔离，避免 commander 对 program 的副作用）
