@@ -276,15 +276,17 @@ test('buildClaudeDesktopOpenCommands quits, SIGTERM, SIGKILL, opens, then activa
 });
 
 test('buildClaudeDesktopOpenCommands taskkill /T then re-launches Claude on Windows', () => {
-  const cmds = buildClaudeDesktopOpenCommands('win32');
+  const cmds = buildClaudeDesktopOpenCommands('win32', { localAppData: 'C:\\Users\\two\\AppData\\Local' });
   assert.equal(cmds.length, 2);
   assert.equal(cmds[0].command, 'taskkill');
   assert.deepEqual(cmds[0].args, ['/IM', 'Claude.exe', '/F', '/T']);
   assert.equal(cmds[0].optional, true);
+
+  // start "" /D <claudeDir> Claude.exe — claudeDir 在 Node 中预先展开，避开 cmd 解析路径空格的坑
   assert.equal(cmds[1].command, 'cmd');
-  assert.deepEqual(cmds[1].args, ['/c', 'start', '', '/B', 'claude:']);
-  // start 的第一个空字符串参数会被 Node 转成 cmdline 中的 ""，作为 start 命令所需的 title 占位
-  assert.equal(cmds[1].args[2], '');
+  assert.deepEqual(cmds[1].args, [
+    '/c', 'start', '', '/D', 'C:\\Users\\two\\AppData\\Local\\AnthropicClaude', 'Claude.exe',
+  ]);
 });
 
 test('openClaudeDesktop walks the full quit→kill→open→activate chain', async () => {
