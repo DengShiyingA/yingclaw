@@ -56,8 +56,8 @@ test('getClaudeDesktopConfigPath returns legacy Claude-3p config file on macOS a
     '/Users/alice/Library/Application Support/Claude-3p/claude_desktop_config.json',
   );
   assert.equal(
-    getClaudeDesktopConfigPath({ platform: 'win32', localAppData: 'C:\\Users\\Alice\\AppData\\Local' }),
-    path.join('C:\\Users\\Alice\\AppData\\Local', 'Claude-3p', 'claude_desktop_config.json'),
+    getClaudeDesktopConfigPath({ platform: 'win32', appData: 'C:\\Users\\Alice\\AppData\\Roaming' }),
+    'C:\\Users\\Alice\\AppData\\Roaming\\Claude-3p\\claude_desktop_config.json',
   );
   assert.equal(getClaudeDesktopConfigPath({ platform: 'linux', homeDir: '/home/alice' }), null);
 });

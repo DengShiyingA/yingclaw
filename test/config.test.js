@@ -301,7 +301,7 @@ test('clearClaudeCodeEnv removes shell env blocks without deleting saved API con
     '',
   ].join('\n'));
 
-  const cleared = clearClaudeCodeEnv({ rcFiles: [rcFile] });
+  const cleared = clearClaudeCodeEnv({ rcFiles: [rcFile], platform: 'linux' });
 
   assert.deepEqual(cleared, [rcFile]);
   assert.equal(fs.existsSync(configFile), true);
