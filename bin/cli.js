@@ -415,7 +415,7 @@ program
     console.log(await getBanner());
 
     try {
-      const ver = execSync('claude --version 2>/dev/null', { encoding: 'utf8' }).trim();
+      const ver = execSync('claude --version', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
       console.log(chalk.green(`\n✔ Claude Code 已安装：${ver}\n`));
       const yes = await confirm({ message: '是否重新安装/更新？', default: false });
       if (!yes) return;
@@ -435,8 +435,8 @@ program
 
     console.log(chalk.dim('\n安装中，实时输出：\n'));
 
-    // 实时输出安装日志
-    const result = spawnSync(installCommand.command, installCommand.args, { stdio: 'inherit' });
+    // 实时输出安装日志（Windows 下 npm 是 npm.cmd，需要 shell: true 才能找到）
+    const result = spawnSync(installCommand.command, installCommand.args, { stdio: 'inherit', shell: process.platform === 'win32' });
 
     if (result.status === 0) {
       console.log(chalk.green('\n✔ Claude Code 安装成功！'));
@@ -870,7 +870,7 @@ program
     const upgradeCmd = { command: 'npm', args: upgradeArgs };
 
     console.log(chalk.dim('\n升级中...\n'));
-    const result = spawnSync(upgradeCmd.command, upgradeCmd.args, { stdio: 'inherit' });
+    const result = spawnSync(upgradeCmd.command, upgradeCmd.args, { stdio: 'inherit', shell: process.platform === 'win32' });
 
     if (result.status === 0) {
       console.log(boxen(
@@ -1051,6 +1051,7 @@ async function runMenu() {
         const child = spawn('claude', [], {
           stdio: 'inherit',
           env: { ...process.env, ...buildClaudeEnv(cfg) },
+          shell: process.platform === 'win32',
         });
         child.on('error', () => {
           console.log(chalk.yellow('\nClaude Code 未找到，请先选择"安装 Claude Code"'));
