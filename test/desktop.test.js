@@ -272,7 +272,17 @@ test('buildClaudeDesktopOpenCommands quits, SIGTERM, SIGKILL, opens, then activa
     { command: 'open', args: ['-a', 'Claude'], waitAfter: 600 },
     { command: 'osascript', args: ['-e', 'tell application "Claude" to activate'], optional: true },
   ]);
-  assert.equal(buildClaudeDesktopOpenCommands('win32'), null);
+  assert.equal(buildClaudeDesktopOpenCommands('linux'), null);
+});
+
+test('buildClaudeDesktopOpenCommands taskkill /T then re-launches Claude on Windows', () => {
+  const cmds = buildClaudeDesktopOpenCommands('win32');
+  assert.equal(cmds.length, 2);
+  assert.equal(cmds[0].command, 'taskkill');
+  assert.deepEqual(cmds[0].args, ['/IM', 'Claude.exe', '/F', '/T']);
+  assert.equal(cmds[0].optional, true);
+  assert.equal(cmds[1].command, 'cmd');
+  assert.ok(cmds[1].args.includes('start'), 'should re-launch via start');
 });
 
 test('openClaudeDesktop walks the full quit→kill→open→activate chain', async () => {

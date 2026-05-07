@@ -138,7 +138,7 @@ async function offerDesktopSync(chalk, ora, config) {
     spinner.fail(chalk.red(`桌面配置同步失败: ${e.message}`));
     return;
   }
-  if (process.platform === 'darwin') {
+  if (process.platform === 'darwin' || process.platform === 'win32') {
     const shouldOpen = await confirm({ message: '是否重启 Claude 桌面应用使新配置生效？', default: true });
     if (shouldOpen) {
       const openSpinner = ora('正在重启 Claude 桌面应用...').start();
@@ -146,7 +146,13 @@ async function offerDesktopSync(chalk, ora, config) {
         await openClaudeDesktop();
         openSpinner.succeed(chalk.green('Claude 桌面应用已重启'));
       } catch (e) {
-        openSpinner.fail(chalk.red(`打开失败: ${e.message}`));
+        openSpinner.fail(chalk.red(`自动重启失败: ${e.message}`));
+        if (process.platform === 'win32') {
+          console.log(chalk.yellow('\n请手动操作（仅关闭窗口不够，进程还在系统托盘）：'));
+          console.log(chalk.dim('  1. 任务栏右下角找 Claude 图标 → 右键 → 退出'));
+          console.log(chalk.dim('  2. 或在任务管理器中结束所有 Claude.exe 进程'));
+          console.log(chalk.dim('  3. 然后重新打开 Claude'));
+        }
       }
     }
   }
@@ -718,16 +724,23 @@ program
       { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'cyan', margin: { top: 1, bottom: 1 } }
     ));
 
-    if (process.platform === 'darwin') {
-      const shouldOpen = await confirm({ message: '是否现在打开 Claude 桌面应用？', default: true });
+    if (process.platform === 'darwin' || process.platform === 'win32') {
+      const shouldOpen = await confirm({ message: '是否现在重启 Claude 桌面应用？', default: true });
       if (shouldOpen) {
-        const openSpinner = ora('正在打开 Claude 桌面应用...').start();
+        const openSpinner = ora('正在重启 Claude 桌面应用...').start();
         try {
           await openClaudeDesktop();
           openSpinner.succeed(chalk.green('Claude 桌面应用已重新打开（旧实例已退出，新配置生效）'));
         } catch (e) {
-          openSpinner.fail(chalk.red(`打开失败: ${e.message}`));
-          console.log(chalk.dim(getDesktopOpenHint()));
+          openSpinner.fail(chalk.red(`自动重启失败: ${e.message}`));
+          if (process.platform === 'win32') {
+            console.log(chalk.yellow('\n请手动操作（仅关闭窗口不够，进程还在系统托盘）：'));
+            console.log(chalk.dim('  1. 任务栏右下角找 Claude 图标 → 右键 → 退出'));
+            console.log(chalk.dim('  2. 或在任务管理器中结束所有 Claude.exe 进程'));
+            console.log(chalk.dim('  3. 然后重新打开 Claude'));
+          } else {
+            console.log(chalk.dim(getDesktopOpenHint()));
+          }
         }
       }
     } else {
