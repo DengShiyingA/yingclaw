@@ -50,16 +50,20 @@ test('buildClaudeDesktopEnterpriseConfig uses provider model ids for legacy desk
   ]);
 });
 
-test('buildClaudeDesktopEnterpriseConfig keeps MiMo model ids without claude- prefix', () => {
-  const config = buildClaudeDesktopEnterpriseConfig({
-    provider: 'mimo',
-    baseUrl: 'https://api.xiaomimimo.com/anthropic',
-    apiKey: 'sk-test',
-    model: 'mimo-v2.5-pro',
-    fastModel: 'mimo-v2.5-pro',
-  }, { uuid: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
-
-  assert.deepEqual(JSON.parse(config.inferenceModels), ['mimo-v2.5-pro']);
+test('buildClaudeDesktopEnterpriseConfig keeps raw model ids for providers with noDesktopPrefix', () => {
+  for (const [provider, baseUrl, model] of [
+    ['mimo',    'https://api.xiaomimimo.com/anthropic',              'mimo-v2.5-pro'],
+    ['qwen',    'https://dashscope.aliyuncs.com/apps/anthropic',     'qwen3-max'],
+    ['minimax', 'https://api.minimaxi.com/anthropic',                'MiniMax-M2.7'],
+    ['glm',     'https://open.bigmodel.cn/api/anthropic',            'GLM-4.7'],
+  ]) {
+    const config = buildClaudeDesktopEnterpriseConfig({
+      provider, baseUrl, apiKey: 'sk-test', model, fastModel: model,
+    }, { uuid: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+    const models = JSON.parse(config.inferenceModels);
+    assert.ok(!models[0].startsWith('claude-'), `${provider}: expected no claude- prefix, got ${models[0]}`);
+    assert.equal(models[0], model);
+  }
 });
 
 test('getClaudeDesktopConfigPath returns legacy Claude-3p config file on macOS and Windows', () => {
