@@ -787,7 +787,7 @@ program
         { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'green', margin: { top: 1, bottom: 1 } }
       ));
 
-      if (process.platform === 'darwin') {
+      if (process.platform === 'darwin' || process.platform === 'win32') {
         const shouldReopen = await confirm({ message: '是否现在重启 Claude 桌面应用使默认配置生效？', default: true });
         if (shouldReopen) {
           const openSpinner = ora('正在重启 Claude 桌面应用...').start();
@@ -795,8 +795,15 @@ program
             await openClaudeDesktop();
             openSpinner.succeed(chalk.green('Claude 桌面应用已重启（已恢复 1P 模式）'));
           } catch (e) {
-            openSpinner.fail(chalk.red(`打开失败: ${e.message}`));
-            console.log(chalk.dim('请手动完全退出 Claude 后重新打开。'));
+            openSpinner.fail(chalk.red(`自动重启失败: ${e.message}`));
+            if (process.platform === 'win32') {
+              console.log(chalk.yellow('\n请手动操作（仅关闭窗口不够，进程还在系统托盘）：'));
+              console.log(chalk.dim('  1. 任务栏右下角找 Claude 图标 → 右键 → 退出'));
+              console.log(chalk.dim('  2. 或在任务管理器中结束所有 Claude.exe 进程'));
+              console.log(chalk.dim('  3. 然后重新打开 Claude'));
+            } else {
+              console.log(chalk.dim('请手动完全退出 Claude 后重新打开。'));
+            }
           }
         }
       } else {
