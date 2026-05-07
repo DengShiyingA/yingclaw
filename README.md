@@ -114,7 +114,7 @@ CLAUDE_CODE_EFFORT_LEVEL
 **自定义接口**需支持 Anthropic `/v1/messages` 格式；工具会根据 Base URL 自动尝试获取模型列表，失败则手动输入。
 
 ## 卸载
-
+ 
 ```bash
 npm uninstall -g yingclaw
 claw reset           # 可选：清除已写入的环境变量和桌面配置
