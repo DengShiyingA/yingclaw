@@ -866,9 +866,10 @@ program
     if (result.status === 0) {
       console.log(boxen(
         chalk.bold(`yingclaw 已升级到 v${latest}\n\n`) +
-        chalk.dim('重新运行 ') + chalk.cyan('claw') + chalk.dim(' 使新版本生效'),
+        chalk.dim('运行 ') + chalk.cyan('claw') + chalk.dim(' 启动新版本'),
         { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'green', margin: { top: 1, bottom: 1 } }
       ));
+      process.exit(0);
     } else {
       console.log(chalk.red('\n升级失败，请手动运行：'));
       console.log(chalk.cyan('npm install -g yingclaw@latest'));

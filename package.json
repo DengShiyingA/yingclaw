@@ -1,6 +1,6 @@
 {
   "name": "yingclaw",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "Claude Code × 国产大模型一键接入：DeepSeek、Kimi、Qwen、MiniMax、GLM、MiMo",
   "main": "index.js",
   "bin": {
