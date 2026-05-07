@@ -4,6 +4,8 @@ Claude Code × 国产大模型，一键接入。
 
 支持 DeepSeek、Kimi、阿里云百炼（Qwen）、MiniMax、智谱 GLM、小米 MiMo，也支持自定义 Anthropic 兼容接口，无需梯子即可使用 Claude Code。
 
+![yingclaw 交互菜单](https://raw.githubusercontent.com/DengShiyingA/yingclaw/main/screenshot.png)
+
 ## 安装
 
 ```bash
