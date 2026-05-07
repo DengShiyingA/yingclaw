@@ -50,6 +50,18 @@ test('buildClaudeDesktopEnterpriseConfig uses provider model ids for legacy desk
   ]);
 });
 
+test('buildClaudeDesktopEnterpriseConfig keeps MiMo model ids without claude- prefix', () => {
+  const config = buildClaudeDesktopEnterpriseConfig({
+    provider: 'mimo',
+    baseUrl: 'https://api.xiaomimimo.com/anthropic',
+    apiKey: 'sk-test',
+    model: 'mimo-v2.5-pro',
+    fastModel: 'mimo-v2.5-pro',
+  }, { uuid: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' });
+
+  assert.deepEqual(JSON.parse(config.inferenceModels), ['mimo-v2.5-pro']);
+});
+
 test('getClaudeDesktopConfigPath returns legacy Claude-3p config file on macOS and Windows', () => {
   assert.equal(
     getClaudeDesktopConfigPath({ platform: 'darwin', homeDir: '/Users/alice' }),
