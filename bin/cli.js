@@ -30,7 +30,7 @@ async function getBanner() {
   const chalk = (await import('chalk')).default;
   const figlet = require('figlet');
   const boxen = (await import('boxen')).default;
-  const title = figlet.textSync('claw', { font: 'Standard', horizontalLayout: 'fitted' });
+  const title = figlet.textSync('yingclaw', { font: 'Small', horizontalLayout: 'fitted' });
   const subtitle = chalk.dim('Claude Code × 国产大模型 一键接入') + '   ' + chalk.cyan(`v${pkg.version}`);
   return boxen(
     chalk.cyan.bold(title) + '\n' + subtitle,
