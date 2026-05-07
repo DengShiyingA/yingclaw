@@ -282,7 +282,9 @@ test('buildClaudeDesktopOpenCommands taskkill /T then re-launches Claude on Wind
   assert.deepEqual(cmds[0].args, ['/IM', 'Claude.exe', '/F', '/T']);
   assert.equal(cmds[0].optional, true);
   assert.equal(cmds[1].command, 'cmd');
-  assert.ok(cmds[1].args.includes('start'), 'should re-launch via start');
+  assert.deepEqual(cmds[1].args, ['/c', 'start', '', '/B', 'claude:']);
+  // start 的第一个空字符串参数会被 Node 转成 cmdline 中的 ""，作为 start 命令所需的 title 占位
+  assert.equal(cmds[1].args[2], '');
 });
 
 test('openClaudeDesktop walks the full quit→kill→open→activate chain', async () => {
