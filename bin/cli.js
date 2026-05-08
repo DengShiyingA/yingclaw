@@ -11,10 +11,10 @@ const {
   fetchModelsFromBaseUrl,
   resetConfig,
   validateConfig,
+  validateKey,
   normalizeAnthropicBaseUrl,
   resolveFastModel,
   buildClaudeEnv,
-  classifyValidationStatus,
   PROVIDERS,
   CLAUDE_ENV_KEYS,
 } = require('../lib/config');
@@ -23,6 +23,7 @@ const pkg = require('../package.json');
 const { buildMenuStatusLines, buildStatusView } = require('../lib/panel');
 const { buildClaudeInstallCommand } = require('../lib/install');
 const { clearClaudeDesktopConfig, isDesktopConfigured, openClaudeDesktop, writeClaudeDesktopConfig } = require('../lib/desktop');
+const { runDoctorChecks, summarize, STATUS_OK, STATUS_FAIL, STATUS_WARN, STATUS_INFO } = require('../lib/doctor');
 
 const program = new Command();
 
@@ -36,42 +37,6 @@ async function getBanner() {
     chalk.cyan.bold(title) + '\n' + subtitle,
     { padding: { top: 0, bottom: 0, left: 2, right: 2 }, borderStyle: 'round', borderColor: 'cyan', margin: { top: 1, bottom: 0 } }
   );
-}
-
-async function validateKey(config) {
-  let url;
-  try {
-    url = `${normalizeAnthropicBaseUrl(config.baseUrl)}/v1/messages`;
-    new URL(url);
-  } catch {
-    return null;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${config.apiKey}`,
-        'x-api-key': config.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-      model: config.model,
-      max_tokens: 1,
-      messages: [{ role: 'user', content: 'hi' }],
-      }),
-    });
-    return classifyValidationStatus(res.status);
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 function getConfigValidationMessage(config) {
@@ -858,6 +823,52 @@ program
   });
 
 program
+  .command('doctor')
+  .description('诊断当前环境，列出所有问题和修复建议')
+  .action(async () => {
+    const chalk = (await import('chalk')).default;
+    const ora = (await import('ora')).default;
+    const boxen = (await import('boxen')).default;
+
+    console.log(await getBanner());
+
+    const spinner = ora('运行诊断检查...').start();
+    const checks = await runDoctorChecks();
+    spinner.stop();
+
+    const icons = {
+      [STATUS_OK]:   chalk.green('✓'),
+      [STATUS_FAIL]: chalk.red('✗'),
+      [STATUS_WARN]: chalk.yellow('⚠'),
+      [STATUS_INFO]: chalk.cyan('ℹ'),
+    };
+
+    console.log();
+    for (const c of checks) {
+      console.log(`  ${icons[c.status]} ${chalk.bold(c.name)}  ${chalk.dim(c.message)}`);
+      if (c.fix) console.log(`    ${chalk.dim('→')} ${chalk.cyan(c.fix)}`);
+    }
+
+    const counts = summarize(checks);
+    const summaryBits = [];
+    if (counts.fail) summaryBits.push(chalk.red(`${counts.fail} 个错误`));
+    if (counts.warn) summaryBits.push(chalk.yellow(`${counts.warn} 个警告`));
+    if (counts.ok)   summaryBits.push(chalk.green(`${counts.ok} 个通过`));
+
+    const allOk = counts.fail === 0 && counts.warn === 0;
+    console.log(boxen(
+      (allOk ? chalk.bold.green('✓ 一切正常') : chalk.bold('诊断完成')) +
+      (summaryBits.length ? '\n\n' + summaryBits.join(' · ') : ''),
+      {
+        padding: { top: 0, bottom: 0, left: 2, right: 2 },
+        borderStyle: 'round',
+        borderColor: counts.fail ? 'red' : counts.warn ? 'yellow' : 'green',
+        margin: { top: 1, bottom: 1 },
+      }
+    ));
+  });
+
+program
   .command('update')
   .description('检查并更新 yingclaw 到最新版本')
   .action(async () => {
@@ -997,6 +1008,7 @@ async function runAdvancedMenu(chalk, hasConfig) {
   const action = await select({ loop: false,
     message: chalk.cyan('高级选项'),
     choices: [
+      { name: '🩺 诊断（一键自检并给出修复建议）', value: 'doctor' },
       { name: '🔁 重新检测 API', value: 'recheck', disabled: !hasConfig && ADVANCED_DISABLED_HINT },
       { name: '↩️  恢复 Claude Code 终端默认', value: 'code-reset' },
       { name: '↩️  恢复 Claude 桌面默认', value: 'desktop-reset' },
@@ -1105,6 +1117,7 @@ async function runMenu() {
       status: 'status',
       reset: 'reset',
       update: 'update',
+      doctor: 'doctor',
     };
 
     // 执行子命令（用 spawn 隔离，避免 commander 对 program 的副作用）
